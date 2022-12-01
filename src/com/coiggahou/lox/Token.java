@@ -1,3 +1,5 @@
+package com.coiggahou.lox;
+
 public class Token {
 
     final TokenType type;
@@ -8,7 +10,7 @@ public class Token {
     final String lexeme;
 
     /**
-     * ?
+     * literal (can be a string or a number)
      */
     final Object literal;
 
