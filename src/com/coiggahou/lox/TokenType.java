@@ -1,3 +1,5 @@
+package com.coiggahou.lox;
+
 public enum TokenType {
 
     // Single-character tokens
