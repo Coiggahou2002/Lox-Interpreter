@@ -1,3 +1,5 @@
+package com.coiggahou.lox;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -263,7 +265,7 @@ public class Scanner {
               we have to look ahead one more step
              */
             case '!':
-                addToken(currentCharMatch('=') ? TokenType.BANG_EQUAL : TokenType.EQUAL);
+                addToken(currentCharMatch('=') ? TokenType.BANG_EQUAL : TokenType.BANG);
                 break;
             case '=':
                 addToken(currentCharMatch('=') ? TokenType.EQUAL_EQUAL : TokenType.EQUAL);
