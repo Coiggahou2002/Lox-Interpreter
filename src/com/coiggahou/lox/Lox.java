@@ -1,5 +1,9 @@
 package com.coiggahou.lox;
 
+import com.coiggahou.lox.error.ConsoleErrorReporter;
+import com.coiggahou.lox.error.ErrorReporter;
+import com.coiggahou.lox.error.RuntimeError;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -17,6 +21,12 @@ public class Lox {
      */
     static boolean hadError = false;
     static boolean hadRuntimeError = false;
+
+    /**
+     * We need to separate the code that generates the errors
+     * from the code that reports them
+     */
+    private static final ErrorReporter errorReporter = new ConsoleErrorReporter();
 
     private static final Interpreter interpreter = new Interpreter();
 
@@ -84,32 +94,21 @@ public class Lox {
     }
 
     static void error(int lineNumber, String message) {
-        report(lineNumber, "", message);
-    }
-
-    static void runtimeError(RuntimeError error) {
-        System.err.println(error.getMessage() +
-                "\n[line " + error.token.line + "]");
-        hadRuntimeError = true;
+        errorReporter.report(lineNumber, "", message);
     }
 
     static void error(Token token, String message) {
         if (token.type == TokenType.EOF) {
-            report(token.line, " at end", message);
+            errorReporter.report(token.line, " at end", message);
         }
         else {
-            report(token.line, " at '" + token.lexeme + "'", message);
+            errorReporter.report(token.line, " at '" + token.lexeme + "'", message);
         }
     }
 
-    /**
-     * We need to separate the code that generates the errors
-     * from the code that reports them
-     */
-    private static void report(int lineNumber, String where, String message) {
-        System.err.println(
-                "[line " + lineNumber + "] Error" + where + ": " + message);
-        hadError = true;
+    static void runtimeError(RuntimeError error) {
+        errorReporter.report(error.getToken().line, "", error.getMessage());
+        hadRuntimeError = true;
     }
 
 }
