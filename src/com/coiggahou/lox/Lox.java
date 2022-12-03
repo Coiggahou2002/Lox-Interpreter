@@ -32,6 +32,8 @@ public class Lox {
 
 
     public static void main(String[] args) throws IOException {
+//        runFile("src/com/coiggahou/lox/test/print.txt");
+//        runFile("src/com/coiggahou/lox/test/var.txt");
         if (args.length > 1) {
             System.out.println("Usage: jlox [script]");
             System.exit(64);
@@ -45,7 +47,7 @@ public class Lox {
     }
 
     /**
-     * run a given code file
+     * run code from a given file
      */
     private static void runFile(String path) throws IOException {
         byte[] bytes = Files.readAllBytes(Paths.get(path));
@@ -86,11 +88,11 @@ public class Lox {
 //        }
 
         Parser parser = new Parser(tokens);
-        Expr expression = parser.parse();
+        List<Stmt> statements = parser.parse();
 
         if (hadError) return;
-//        System.out.println(new AstPrinter().print(expression));
-        interpreter.interpret(expression);
+
+        interpreter.interpret(statements);
     }
 
     static void error(int lineNumber, String message) {
@@ -110,5 +112,9 @@ public class Lox {
         errorReporter.report(error.getToken().line, "", error.getMessage());
         hadRuntimeError = true;
     }
+
+
+
+
 
 }

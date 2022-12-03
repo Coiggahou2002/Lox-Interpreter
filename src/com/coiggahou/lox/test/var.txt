@@ -1,0 +1,11 @@
+var a = 5;
+var b = 3;
+print a+b;
+print a*a*a;
+var c;
+print c;
+var c = 6;
+print c + a;
+print "aaa"  + c;
+var d;
+print c+d;

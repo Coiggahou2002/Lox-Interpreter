@@ -1,5 +1,8 @@
 package com.coiggahou.lox;
 
+import com.coiggahou.lox.error.RuntimeError;
+
+import java.util.ArrayList;
 import java.util.List;
 
 import static com.coiggahou.lox.TokenType.*;
@@ -13,7 +16,12 @@ class Parser {
      */
     private final List<Token> tokens;
 
-    private static class ParseError extends RuntimeException{}
+    Parser(List<Token> tokens) {
+        this.tokens = tokens;
+    }
+
+    private static class ParseError extends RuntimeException {
+    }
 
     /**
      * index of the next token waiting to be parsed
@@ -95,14 +103,126 @@ class Parser {
         throw error(peek(), message);
     }
 
-    Parser(List<Token> tokens) {
-        this.tokens = tokens;
+    /**
+     * the method aims to skip over the current matching process for a declaration
+     * when sth unexpected occur
+     * and continue to parse the next possible declaration
+     */
+    private void synchronize() {
+        advance();
+        while (!isAtEnd()) {
+            if (previous().type == SEMICOLON) return;
+            switch (peek().type) {
+                case CLASS, FUN, VAR, FOR, IF, WHILE, PRINT, RETURN -> {
+                    return;
+                }
+            }
+            advance();
+        }
     }
 
+    /**
+     * declaration -> variableDeclaration | statement
+     */
+    private Stmt declaration() {
+        try {
+            if (match(VAR)) {
+                return variableDeclaration();
+            }
+            return statement();
+        } catch (ParseError error) {
+            // if error occur when parsing the current declaration,
+            // use synchronize() to skip over it
+            // and begin the parsing process for the next possible declaration
+            synchronize();
+            return null;
+        }
+    }
+
+    /**
+     * variableDeclaration -> "var" IDENTIFIER ("=" expr)? ";"
+     */
+    private Stmt variableDeclaration() {
+        Token identifier = consume(IDENTIFIER, "expect variable name");
+        Expr initializer = null;
+        if (match(EQUAL)) {
+            initializer = expression();
+        }
+        consume(SEMICOLON, "expect ';' after variable declaration");
+        return new Stmt.DeclarationStmt(identifier, initializer);
+    }
+
+    /**
+     * stmt -> printStmt | exprStmt
+     * printStmt -> "print" expr ";"
+     * exprStmt -> expr ";"
+     */
+    private Stmt statement() {
+        if (match(PRINT)) {
+            return printStatement();
+        }
+        return expressionStatement();
+    }
+
+    private Stmt printStatement() {
+        Expr exprToPrint = expression();
+        consume(SEMICOLON, "expect ';' after print statement");
+        return new Stmt.PrintStmt(exprToPrint);
+    }
+
+    private Stmt expressionStatement() {
+        Expr expr = expression();
+        consume(SEMICOLON, "expect ';' after expression");
+        return new Stmt.ExpressionStmt(expr);
+    }
+
+    /**
+     * expr -> equality
+     */
     private Expr expression() {
-        return equality();
+        return assignment();
     }
 
+    /**
+     * FIXME:
+     * assignment -> IDENTIFIER "=" assignment | equality
+     *
+     * the SELECT sets of these two production has an intersecting part { IDENTIFIER }
+     *
+     * In fact, IDENTIFIER in the former production is an LValue,
+     * and IDENTIFIER in the latter is an RValue,
+     * but the parser doesn't know whether it is an LValue or an RValue until it meets the "="
+     *
+     * It is easy to make wrong choice here
+     * We have to do sth to determine which production we choose to continue
+     *
+     * We have two ways to solve the problem:
+     * 1. look ahead for one more token, if we see "=", we know the ID is an LValue
+     * 2. try to match equality() first without looking ahead for one more token
+     */
+    private Expr assignment() {
+        // try to match equality() first
+        Expr expr = equality();
+
+        // if we didn't see "=" here, we ends here.
+        if (match(EQUAL)) {
+            // if we did see "=",
+            // it means that the equality() we match before is actually a IDENTIFIER,
+            // or to say, a VarExpr
+            Token equal = previous();
+            Expr assigner = assignment();
+            if (expr instanceof Expr.VarExpr) {
+                Token assignee = ((Expr.VarExpr) expr).identifier;
+                return new Expr.AssignExpr(assignee, assigner);
+            }
+            error(equal, "Invalid assignment target.");
+        }
+        return expr;
+    }
+
+    /**
+     * equality -> expr (("!="|"==") expr)*
+     */
     private Expr equality() {
         Expr expr = comparison();
 
@@ -114,6 +234,9 @@ class Parser {
         return expr;
     }
 
+    /**
+     * comparison -> term ((">"|">="|"<"|"<=") term)*
+     */
     private Expr comparison() {
         Expr expr = term();
 
@@ -125,6 +248,9 @@ class Parser {
         return expr;
     }
 
+    /**
+     * term -> factor (("-"|"+") factor)*
+     */
     private Expr term() {
         Expr expr = factor();
         while (match(MINUS, PLUS)) {
@@ -135,6 +261,9 @@ class Parser {
         return expr;
     }
 
+    /**
+     * factor -> unary (("*"|"/") unary)*
+     */
     private Expr factor() {
         Expr expr = unary();
         while (match(SLASH, STAR)) {
@@ -145,6 +274,9 @@ class Parser {
         return expr;
     }
 
+    /**
+     * unary -> ("!"|"-") unary | primary
+     */
     private Expr unary() {
         if (match(BANG, MINUS)) {
             return new Expr.UnaryExpr(previous(), unary());
@@ -152,10 +284,19 @@ class Parser {
         return primary();
     }
 
+    /**
+     * primary -> "true" | "false" | "nil" | NUMBER | STRING | "("expr")" | IDENTIFIER
+     */
     private Expr primary() {
-        if (match(TRUE)) { return new Expr.LiteralExpr(true); }
-        if (match(FALSE)) { return new Expr.LiteralExpr(false); }
-        if (match(NIL)) { return new Expr.LiteralExpr(null); };
+        if (match(TRUE)) {
+            return new Expr.LiteralExpr(true);
+        }
+        if (match(FALSE)) {
+            return new Expr.LiteralExpr(false);
+        }
+        if (match(NIL)) {
+            return new Expr.LiteralExpr(null);
+        }
 
         if (match(NUMBER, STRING)) {
             return new Expr.LiteralExpr(previous().literal);
@@ -166,15 +307,22 @@ class Parser {
             consume(RIGHT_PAREN, "expected ')' after expression");
             return expr;
         }
-        throw error(peek(), "Expect expression.");
+
+        if (match(IDENTIFIER)) {
+            return new Expr.VarExpr(previous());
+        }
+
+        throw error(peek(), "Unknown symbol");
     }
 
-
-    Expr parse() {
-        try {
-            return expression();
-        } catch (ParseError error) {
-            return null;
+    /**
+     * start to match statement by statement
+     */
+    List<Stmt> parse() {
+        List<Stmt> statements = new ArrayList<>();
+        while (!isAtEnd()) {
+            statements.add(declaration());
         }
+        return statements;
     }
 }

@@ -7,8 +7,6 @@ public class AstPrinter implements Expr.Visitor<String>{
 
     /**
      * parenthesize a list of expressions with a description at the head
-     * @param desc
-     * @param exprs
      * @return the parenthesized string
      */
     private String parenthesize(String desc, Expr... exprs) {
@@ -57,6 +55,16 @@ public class AstPrinter implements Expr.Visitor<String>{
     public String visitLiteralExpr(Expr.LiteralExpr expr) {
         if (expr.value == null) return "nil";
         return expr.value.toString();
+    }
+
+    @Override
+    public String visitVarExpr(Expr.VarExpr expr) {
+        return expr.identifier.lexeme;
+    }
+
+    @Override
+    public String visitAssignExpr(Expr.AssignExpr expr) {
+        return null;
     }
 
     // just for test

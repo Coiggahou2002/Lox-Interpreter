@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.coiggahou.lox.util.CharUtil.*;
 
 
 /**
@@ -154,25 +155,6 @@ public class Scanner {
         addToken(TokenType.STRING, literal);
     }
 
-    private boolean isDigit(char c) {
-        return c >= '0' && c <= '9';
-    }
-
-    private boolean isAlpha(char c) {
-        return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
-    }
-
-    private boolean isAlphaOrUnderline(char c) {
-        return isAlpha(c) || c == '_';
-    }
-
-    private boolean isAlnum(char c) {
-        return isAlpha(c) || isDigit(c);
-    }
-
-    private boolean isAlnumOrUnderline(char c) {
-        return isAlnum(c) || c == '_';
-    }
 
     /**
      * eats a number like 3.1415
@@ -199,15 +181,15 @@ public class Scanner {
             eat();
         }
         String identifierStr = source.substring(start, current);
-        /**
-         * We first suppose the identifier is a reserved keyword,
-         * if it is not a reserved keyword,
-         * then it is just a identifier
+
+        /*
+          We first suppose the identifier is a reserved keyword,
+          if it is not a reserved keyword,
+          then it is just an identifier
          */
         TokenType type = keywords.get(identifierStr);
         if (type == null) type = TokenType.IDENTIFIER;
 
-        // why don't add the literal of the identifer here ?
         addToken(type);
     }
 

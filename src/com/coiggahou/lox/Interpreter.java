@@ -1,17 +1,58 @@
 package com.coiggahou.lox;
 
-public class Interpreter implements Expr.Visitor<Object> {
+import com.coiggahou.lox.error.RuntimeError;
 
-    void interpret(Expr expression) {
-        try {
-            Object value = evaluate(expression);
-            System.out.println(stringify(value));
-        }
-        catch (RuntimeError error) {
-            Lox.runtimeError(error);
-        }
+import java.util.List;
+
+public class Interpreter implements Expr.Visitor<Object>,
+                                    Stmt.Visitor<Void>{
+
+    private final Environment environment = new Environment();
+
+
+    /**
+     * this method determines what is truthy in Lox
+     * and also what is not
+     *
+     * temporarily we simply assume that
+     * everything is truthy except `nil` and `false`
+     */
+    private boolean isTruthy(Object object) {
+        if (object == null) return false;
+        if (object instanceof Boolean) return (boolean)object;
+        return true;
     }
 
+    /**
+     * method that determines whether two objects are equal
+     * __NO IMPLICIT CONVERSIONS__ during comparison
+     */
+    private boolean isEqual(Object a, Object b) {
+        if (a == null && b == null) return true;
+        if (a == null) return false;
+        return a.equals(b);
+    }
+
+    /**
+     * @throws RuntimeError with operator info if operand is not a number
+     */
+    private void checkNumberOperand(Token operator, Object operand) {
+        if (operand instanceof Double) return;
+        throw new RuntimeError(operator, "Operand must be a number.");
+    }
+
+    /**
+     * @throws RuntimeError with operator info
+     *          whenever anyone of the two is not a number
+     */
+    private void checkNumberOperands(Token operator, Object left, Object right) {
+        if (left instanceof Double && right instanceof Double) return;
+        throw new RuntimeError(operator, "Both operands must be numbers.");
+    }
+
+    /**
+     * toString() in Lox
+     */
     private String stringify(Object object) {
         if (object == null) return "nil";
         if (object instanceof Double) {
@@ -49,31 +90,31 @@ public class Interpreter implements Expr.Visitor<Object> {
                 throw new RuntimeError(expr.operator, "Oprands must be two numbers or two strings.");
             }
             case MINUS -> {
-                checkNumberOprands(expr.operator, l, r);
+                checkNumberOperands(expr.operator, l, r);
                 return (double)l - (double)r;
             }
             case STAR -> {
-                checkNumberOprands(expr.operator, l, r);
+                checkNumberOperands(expr.operator, l, r);
                 return (double)l * (double)r;
             }
             case SLASH -> {
-                checkNumberOprands(expr.operator, l, r);
+                checkNumberOperands(expr.operator, l, r);
                 return (double)l / (double)r;
             }
             case GREATER -> {
-                checkNumberOprands(expr.operator, l, r);
+                checkNumberOperands(expr.operator, l, r);
                 return (double)l > (double)r;
             }
             case GREATER_EQUAL -> {
-                checkNumberOprands(expr.operator, l, r);
+                checkNumberOperands(expr.operator, l, r);
                 return (double)l >= (double)r;
             }
             case LESS -> {
-                checkNumberOprands(expr.operator, l, r);
+                checkNumberOperands(expr.operator, l, r);
                 return (double)l < (double)r;
             }
             case LESS_EQUAL -> {
-                checkNumberOprands(expr.operator, l, r);
+                checkNumberOperands(expr.operator, l, r);
                 return (double)l <= (double)r;
             }
             case EQUAL_EQUAL -> {
@@ -95,7 +136,7 @@ public class Interpreter implements Expr.Visitor<Object> {
                 return !isTruthy(r);
             }
             case MINUS -> {
-                checkNumberOprand(expr.operator, r);
+                checkNumberOperand(expr.operator, r);
                 return -(double)r;
             }
         }
@@ -112,43 +153,98 @@ public class Interpreter implements Expr.Visitor<Object> {
         return expr.value;
     }
 
+    /**
+     * what to do when we meet an identifier
+     * (like the way we use a variable by its name usually)
+     */
+    @Override
+    public Object visitVarExpr(Expr.VarExpr expr) {
+        return environment.get(expr.identifier);
+    }
+
+
+    /**
+     * An assign statement usually returns the assigned value
+     *
+     * e.g. In C or Cpp, we sometimes see
+     *
+     *          while((line = readLine()) != null) { // ... }
+     *
+     *      the assignment (line = readLine()) returns the assigned value
+     */
+    @Override
+    public Object visitAssignExpr(Expr.AssignExpr expr) {
+        return environment.assign(expr.assignee, evaluate(expr.assigner));
+    }
+
     private Object evaluate(Expr expr) {
         return expr.accept(this);
     }
 
 
     /**
-     * this method determines what is truthy in Lox
-     * and also what is not
-     *
-     * temporarily we simply assume that
-     * everything is truthy except `nil` and `false`
+     * an expression statement is sth like `1+2;`
+     * we only need to evaluate it to make sure that
+     * every sub-expression in it is evaluated
+     * but without returning anything
+     * @return NOTHING
      */
-    private boolean isTruthy(Object object) {
-        if (object == null) return false;
-        if (object instanceof Boolean) return (boolean)object;
-        return true;
+    @Override
+    public Void visitExpressionStmt(Stmt.ExpressionStmt stmt) {
+        evaluate(stmt.expr);
+        return null;
+    }
+
+    @Override
+    public Void visitPrintStmt(Stmt.PrintStmt stmt) {
+        System.out.println(stringify(evaluate(stmt.expr)));
+        return null;
     }
 
     /**
-     * method who determines whether two objects are equal
-     * __NO IMPLICIT CONVERSIONS__ during comparison
-     * @param a
-     * @param b
-     * @return
+     * Whenever our client use "var" to declare a new variable,
+     * we need to add a record to our variable table
      */
-    private boolean isEqual(Object a, Object b) {
-        if (a == null && b == null) return true;
-        if (a == null) return false;
-        return a.equals(b);
+    @Override
+    public Void visitDeclarationStmt(Stmt.DeclarationStmt stmt) {
+        String varName = stmt.name.lexeme;
+        // if a variable is defined but not assigned,
+        // we set its value to `nil` (aka. null in Java)
+        Object initializeValue = null;
+        if (stmt.initializer != null) {
+            initializeValue = evaluate(stmt.initializer);
+        }
+        environment.define(varName, initializeValue);
+        return null;
     }
 
-    private boolean checkNumberOprand(Token operator, Object oprand) {
-        if (oprand instanceof Double) return true;
-        throw new RuntimeError(operator, "Oprand must be a number.");
+
+    private void execute(Stmt statement) {
+        statement.accept(this);
     }
-    private boolean checkNumberOprands(Token operator, Object left, Object right) {
-        if (left instanceof Double && right instanceof Double) return true;
-        throw new RuntimeError(operator, "Oprand must be a number.");
+
+
+    void interpret(Expr expression) {
+        try {
+            Object value = evaluate(expression);
+            System.out.println(stringify(value));
+        }
+        catch (RuntimeError error) {
+            Lox.runtimeError(error);
+        }
     }
+
+    void interpret(List<Stmt> statements) {
+        try {
+            for (Stmt statement : statements) {
+                execute(statement);
+            }
+        }
+        catch (RuntimeError error){
+            Lox.runtimeError(error);
+        }
+
+    }
+
+
 }
