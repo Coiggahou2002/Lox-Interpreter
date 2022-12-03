@@ -34,6 +34,9 @@ public class Lox {
     public static void main(String[] args) throws IOException {
 //        runFile("src/com/coiggahou/lox/test/print.txt");
 //        runFile("src/com/coiggahou/lox/test/var.txt");
+//        runFile("src/com/coiggahou/lox/test/block.txt");
+//        runFile("src/com/coiggahou/lox/test/inner-outer.txt");
+//
         if (args.length > 1) {
             System.out.println("Usage: jlox [script]");
             System.exit(64);
@@ -59,33 +62,48 @@ public class Lox {
 
     /**
      * open an interactive prompt
+     *
+     * NOTE:
+     *  REPL is allowed to be used as an expression evaluator
+     *  which means it can execute statements when user enter statements
+     *  but also just evaluate and print value when user enter single expression
      */
     private static void runPrompt() throws IOException {
         InputStreamReader input = new InputStreamReader(System.in);
         BufferedReader reader = new BufferedReader(input);
 
         for (;;) {
+            // reset the error flag
+            hadError = false;
+
             System.out.print("> ");
             String line = reader.readLine();
+
             // if got EOF (send by Ctrl+D), exit the loop and quit the program
             if (line == null) {
                 break;
             }
-            run(line);
 
-            // reset the error flag
-            hadError = false;
+            Scanner scanner = new Scanner(line);
+            List<Token> tokens = scanner.scanTokens();
+            Parser parser = new Parser(tokens);
+            Object stmtsOrExpr = parser.parseRepl();
+
+            if (hadError) return;
+
+            if (stmtsOrExpr instanceof List) {
+                interpreter.interpret((List<Stmt>) stmtsOrExpr);
+            }
+            else if (stmtsOrExpr instanceof Expr) {
+                interpreter.interpret((Expr) stmtsOrExpr);
+            }
         }
     }
+
 
     private static void run(String source) {
         Scanner scanner = new Scanner(source);
         List<Token> tokens = scanner.scanTokens();
-
-        // for now, we just print the token
-//        for (Token token : tokens) {
-//            System.out.println(token);
-//        }
 
         Parser parser = new Parser(tokens);
         List<Stmt> statements = parser.parse();

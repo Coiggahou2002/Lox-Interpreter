@@ -1,7 +1,5 @@
 package com.coiggahou.lox;
 
-import com.coiggahou.lox.error.RuntimeError;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -9,6 +7,10 @@ import static com.coiggahou.lox.TokenType.*;
 
 
 class Parser {
+
+    private boolean allowREPLSingleExpression = false;
+    private boolean foundREPLSingleExpression = false;
+
 
     /**
      * the input of the parse
@@ -176,7 +178,16 @@ class Parser {
 
     private Stmt expressionStatement() {
         Expr expr = expression();
-        consume(SEMICOLON, "expect ';' after expression");
+
+        // if we are doing single-expr-evaluate of REPL,
+        // we are not going to consume the SEMICOLON here
+        // to avoid any error to be thrown
+        if (allowREPLSingleExpression && isAtEnd()) {
+            foundREPLSingleExpression = true;
+        }
+        else {
+            consume(SEMICOLON, "expect ';' after expression");
+        }
         return new Stmt.ExpressionStmt(expr);
     }
 
@@ -334,8 +345,58 @@ class Parser {
     List<Stmt> parse() {
         List<Stmt> statements = new ArrayList<>();
         while (!isAtEnd()) {
-            statements.add(declaration());
+            Stmt stmt = declaration();
+            // if error occur, due to synchronize(),
+            // declaration() may return null
+            // we shouldn't add null statement
+            if (stmt != null) statements.add(stmt);
         }
         return statements;
     }
+
+    void resetTokenPointer() {
+        this.current = 0;
+    }
+
+    Object parseRepl() {
+        allowREPLSingleExpression = true;
+
+        List<Stmt> statements = new ArrayList<>();
+        while (!isAtEnd()) {
+            Stmt stmt = declaration();
+            if (stmt == null) continue;
+            statements.add(stmt);
+
+            // this flag will only be set and only set ONCE
+            // in expressionStatement()
+            // and it is used as a one-time flag
+            // to indicate that we've found a single-expression
+            // without a SEMICOLON followed
+            if (foundREPLSingleExpression) {
+                return ((Stmt.ExpressionStmt)stmt).expr;
+            }
+
+            // If we FOUND the single-expression during the first
+            // declaration(), at this time
+            //
+            //      foundREPLSingleExpression is true
+            //      allowREPLSingleExpression is true
+            //
+            // the function will return and won't reach the code below.
+            // -------------------------------------------------------
+            // If NOT, at this time
+            //
+            //      foundREPLSingleExpression is false
+            //      allowREPLSingleExpression is true
+            //
+            // the `allow` flag should be set to false since the first
+            // statement was added to the statement list to make sure
+            // that the parser won't try to match single-expression in
+            // the following tokens anymore, meanwhile the `found` flag
+            // will not be change anymore.
+            allowREPLSingleExpression = false;
+        }
+        return statements;
+    }
+
 }

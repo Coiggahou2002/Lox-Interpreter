@@ -258,6 +258,10 @@ public class Interpreter implements Expr.Visitor<Object>,
         }
     }
 
+
+    /**
+     * evaluate the expression and print the value
+     */
     void interpret(Expr expression) {
         try {
             Object value = evaluate(expression);
@@ -277,7 +281,6 @@ public class Interpreter implements Expr.Visitor<Object>,
         catch (RuntimeError error){
             Lox.runtimeError(error);
         }
-
     }
 
 
