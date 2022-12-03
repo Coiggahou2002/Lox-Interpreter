@@ -6,14 +6,22 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class Environment {
+
+    private final Environment enclosing;
+
     private final Map<String, Object> values = new HashMap<>();
 
-    private boolean isDefined(String name) {
-        return values.containsKey(name);
+    public Environment() {
+        this.enclosing = null;
+    }
+
+    public Environment(Environment enclosing) {
+        this.enclosing = enclosing;
     }
 
     /**
-     * redefining an existing variable is ALLOWED
+     * NOTE: redefining an existing variable is ALLOWED
+     *
      * that's to say, when we write:
      *    var a = 5;
      *    var a = 5555;
@@ -23,18 +31,35 @@ public class Environment {
         values.put(name, value);
     }
 
+    /**
+     * get the value by a variable name
+     * @throws RuntimeError if all scopes on the scope chain have no definition of the variable
+     */
     Object get(Token name) {
-        if (isDefined(name.lexeme)) {
-            return values.get(name.lexeme);
+        // first try to find definition in the local scope
+        // if no def in local scope, go up by the scope chain
+        if (!values.containsKey(name.lexeme)) {
+            if (enclosing != null) {
+                return enclosing.get(name);
+            }
+            throw new RuntimeError(name, String.format("Undefined variable %s.", name.lexeme));
         }
-        throw new RuntimeError(name, String.format("Undefined variable %s.", name.lexeme));
+        return values.get(name.lexeme);
     }
 
+    /**
+     * assign the specified variable
+     * @return the assigned value
+     * @throws RuntimeError if all scopes on the scope chain have no definition of the variable
+     */
     Object assign(Token name, Object value) {
-        if (isDefined(name.lexeme)) {
-            values.put(name.lexeme, value);
-            return value;
+        if (!values.containsKey(name.lexeme)) {
+            if (enclosing != null) {
+                return enclosing.assign(name, value);
+            }
+            throw new RuntimeError(name, String.format("Cannot assigned an undefined variable %s.", name.lexeme));
         }
-        throw new RuntimeError(name, String.format("Cannot assigned a undefined variable %s.", name.lexeme));
+        values.put(name.lexeme, value);
+        return value;
     }
 }

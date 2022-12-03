@@ -7,7 +7,10 @@ import java.util.List;
 public class Interpreter implements Expr.Visitor<Object>,
                                     Stmt.Visitor<Void>{
 
-    private final Environment environment = new Environment();
+    /**
+     * points to the current innermost lexical scope
+     */
+    private Environment environment = new Environment();
 
 
     /**
@@ -218,11 +221,42 @@ public class Interpreter implements Expr.Visitor<Object>,
         return null;
     }
 
+    @Override
+    public Void visitBlockStmt(Stmt.BlockStmt stmt) {
+        Environment newBlockScope = new Environment(this.environment);
+        executeBlock(stmt.declarations, newBlockScope);
+        return null;
+    }
+
 
     private void execute(Stmt statement) {
+        if (statement == null) return;
         statement.accept(this);
     }
 
+    /**
+     * execute a block in the given scope
+     */
+    private void executeBlock(List<Stmt> statements, Environment scope) {
+        Environment previous = this.environment;
+
+        // Q: Why wrapped with try-finally ?
+        // A: To make sure that even any of the statements threw exception during execution,
+        //    the outer scope can still be restored
+        //    because code in `finally` will be executed no matter exceptions are thrown or not
+        try {
+            // replace the current env pointer by the given scope
+            this.environment = scope;
+            for (Stmt statement: statements) {
+                execute(statement);
+            }
+        }
+        finally {
+            // After all the statements inside the block were executed,
+            // replace the env pointer to the previous enclosing scope
+            this.environment = previous;
+        }
+    }
 
     void interpret(Expr expression) {
         try {

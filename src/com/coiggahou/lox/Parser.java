@@ -153,13 +153,17 @@ class Parser {
     }
 
     /**
-     * stmt -> printStmt | exprStmt
+     * stmt -> printStmt | exprStmt | block
      * printStmt -> "print" expr ";"
-     * exprStmt -> expr ";"
+     * exprStmt  -> expr ";"
+     * block     -> "{" declaration* "}"
      */
     private Stmt statement() {
         if (match(PRINT)) {
             return printStatement();
+        }
+        if (match(LEFT_BRACE)) {
+            return block();
         }
         return expressionStatement();
     }
@@ -174,6 +178,15 @@ class Parser {
         Expr expr = expression();
         consume(SEMICOLON, "expect ';' after expression");
         return new Stmt.ExpressionStmt(expr);
+    }
+
+    private Stmt block() {
+        List<Stmt> statements = new ArrayList<>();
+        while (!check(RIGHT_BRACE) && !isAtEnd()) {
+            statements.add(declaration());
+        }
+        consume(RIGHT_BRACE, "expect '}' at the end of a block");
+        return new Stmt.BlockStmt(statements);
     }
 
     /**
