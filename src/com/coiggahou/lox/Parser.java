@@ -155,9 +155,10 @@ class Parser {
     }
 
     /**
-     * stmt -> printStmt | exprStmt | block
+     * stmt -> printStmt | exprStmt | ifStmt | block
      * printStmt -> "print" expr ";"
      * exprStmt  -> expr ";"
+     * ifStmt    -> "if" "(" expression ")" statement ("else" statement)?
      * block     -> "{" declaration* "}"
      */
     private Stmt statement() {
@@ -166,6 +167,9 @@ class Parser {
         }
         if (match(LEFT_BRACE)) {
             return block();
+        }
+        if (match(IF)) {
+            return ifStatement();
         }
         return expressionStatement();
     }
@@ -189,6 +193,18 @@ class Parser {
             consume(SEMICOLON, "expect ';' after expression");
         }
         return new Stmt.ExpressionStmt(expr);
+    }
+
+    private Stmt ifStatement() {
+        consume(LEFT_PAREN, "expect '(' after 'if'");
+        Expr condition = expression();
+        consume(RIGHT_PAREN, "expect ')' after 'if' condition expression");
+        Stmt thenBranch = statement();
+        Stmt elseBranch = null;
+        if (match(ELSE)) {
+            elseBranch = statement();
+        }
+        return new Stmt.IfStmt(condition, thenBranch, elseBranch);
     }
 
     private Stmt block() {

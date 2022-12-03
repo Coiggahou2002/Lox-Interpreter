@@ -5,10 +5,12 @@ declaration    → varDecl
 
 statement      → exprStmt
                | printStmt
+               | ifStmt
                | block ;
 
 exprStmt       → expression ";" ;
 printStmt      → "print" expression ";" ;
+ifStmt         → "if" "(" expression ")" statement ("else" statement)? ;
 block          → "{" declaration* "}" ;
 
 varDecl        → "var" IDENTIFIER ("=" expression)? ";" ;
