@@ -4,6 +4,8 @@ import com.coiggahou.lox.error.RuntimeError;
 
 import java.util.List;
 
+import static com.coiggahou.lox.TokenType.OR;
+
 public class Interpreter implements Expr.Visitor<Object>,
                                     Stmt.Visitor<Void>{
 
@@ -178,6 +180,26 @@ public class Interpreter implements Expr.Visitor<Object>,
     @Override
     public Object visitAssignExpr(Expr.AssignExpr expr) {
         return environment.assign(expr.assignee, evaluate(expr.assigner));
+    }
+
+    /**
+     * logical operator is short-circuited
+     * it gives the left or right ORIGIN value
+     * instead of producing true or false
+     * e.g. `A and B` returns A if A is falsey
+     *      `A or B`  returns A if A is truthy
+     */
+    @Override
+    public Object visitLogicExpr(Expr.LogicExpr expr) {
+        Object left = evaluate(expr.left);
+
+        if (expr.operator.type == OR) {
+            if (isTruthy(left)) return left;
+        }
+        else {
+            if (!isTruthy(left)) return left;
+        }
+        return evaluate(expr.right);
     }
 
     private Object evaluate(Expr expr) {

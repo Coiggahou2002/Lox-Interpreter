@@ -22,6 +22,7 @@ abstract class Expr {
         R visitLiteralExpr(LiteralExpr expr);
         R visitVarExpr(VarExpr expr);
         R visitAssignExpr(AssignExpr expr);
+        R visitLogicExpr(LogicExpr expr);
     }
 
     static class BinaryExpr extends Expr {
@@ -79,7 +80,7 @@ abstract class Expr {
     }
 
     /**
-     * a VarExpr should be evaluated to
+     * a VarExpr should be evaluated as
      * the RValue of a variable
      * which means the value of a variable
      */
@@ -109,4 +110,22 @@ abstract class Expr {
             return visitor.visitAssignExpr(this);
         }
     }
+
+    static class LogicExpr extends Expr {
+        final Expr left;
+        final Token operator;
+        final Expr right;
+
+        LogicExpr(Expr left, Token operator, Expr right) {
+            this.left = left;
+            this.operator = operator;
+            this.right = right;
+        }
+
+        @Override
+        <R> R accept(Visitor<R> visitor) {
+            return visitor.visitLogicExpr(this);
+        }
+    }
+
 }

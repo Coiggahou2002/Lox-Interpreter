@@ -224,8 +224,7 @@ class Parser {
     }
 
     /**
-     * FIXME:
-     * assignment -> IDENTIFIER "=" assignment | equality
+     * assignment -> IDENTIFIER "=" assignment | logic_or
      *
      * the SELECT sets of these two production has an intersecting part { IDENTIFIER }
      *
@@ -238,11 +237,11 @@ class Parser {
      *
      * We have two ways to solve the problem:
      * 1. look ahead for one more token, if we see "=", we know the ID is an LValue
-     * 2. try to match equality() first without looking ahead for one more token
+     * 2. try to match logic_or() first without looking ahead for one more token
      */
     private Expr assignment() {
-        // try to match equality() first
-        Expr expr = equality();
+        // try to match logic_or() first
+        Expr expr = logic_or();
 
         // if we didn't see "=" here, we ends here.
         if (match(EQUAL)) {
@@ -256,6 +255,32 @@ class Parser {
                 return new Expr.AssignExpr(assignee, assigner);
             }
             error(equal, "Invalid assignment target.");
+        }
+        return expr;
+    }
+
+    /**
+     * logic_or -> logic_and ("or" logic_and)*
+     */
+    private Expr logic_or() {
+        Expr expr = logic_and();
+        while (match(OR)) {
+            Token operator = previous();
+            Expr right = logic_and();
+            expr = new Expr.LogicExpr(expr, operator, right);
+        }
+        return expr;
+    }
+
+    /**
+     * logic_and -> equality ("and" equality)*
+     */
+    private Expr logic_and() {
+        Expr expr = equality();
+        while (match(AND)) {
+            Token operator = previous();
+            Expr right = equality();
+            expr = new Expr.LogicExpr(expr, operator, right);
         }
         return expr;
     }
