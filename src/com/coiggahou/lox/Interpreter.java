@@ -262,6 +262,14 @@ public class Interpreter implements Expr.Visitor<Object>,
         return null;
     }
 
+    @Override
+    public Void visitWhileStmt(Stmt.WhileStmt stmt) {
+        while (isTruthy(evaluate(stmt.condition))) {
+            execute(stmt.loopBody);
+        }
+        return null;
+    }
+
 
     private void execute(Stmt statement) {
         if (statement == null) return;

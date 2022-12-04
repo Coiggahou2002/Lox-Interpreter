@@ -171,6 +171,9 @@ class Parser {
         if (match(IF)) {
             return ifStatement();
         }
+        if (match(WHILE)) {
+            return whileStatement();
+        }
         return expressionStatement();
     }
 
@@ -205,6 +208,17 @@ class Parser {
             elseBranch = statement();
         }
         return new Stmt.IfStmt(condition, thenBranch, elseBranch);
+    }
+
+    /**
+     * whileStmt -> "while" "(" expression ")" statement
+     */
+    private Stmt whileStatement() {
+        consume(LEFT_PAREN, "expect '(' after 'while'");
+        Expr cond = expression();
+        consume(RIGHT_PAREN, "expect ')' after while conditional expression");
+        Stmt body = statement();
+        return new Stmt.WhileStmt(cond, body);
     }
 
     private Stmt block() {
